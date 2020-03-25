@@ -85,7 +85,7 @@ class MWSClient{
     }
 
     /**
-     * A method to quickly check if the supplied credentials are valid
+     * A method to quickly check if the supplied credentials are valid2
      * @return boolean
      */
     public function validateCredentials()
