@@ -46,6 +46,7 @@ class MWSClient{
 
     protected $debugNextFeed = false;
     protected $client = NULL;
+    public $response = NULL;
 
     public function __construct(array $config)
     {
@@ -1088,7 +1089,7 @@ class MWSClient{
     public function GetReport($ReportId)
     {
         $status = $this->GetReportRequestStatus($ReportId);
-
+        $this->response = $status;
         if ($status !== false && $status['ReportProcessingStatus'] === '_DONE_NO_DATA_') {
             return [];
         } else if ($status !== false && $status['ReportProcessingStatus'] === '_DONE_') {
