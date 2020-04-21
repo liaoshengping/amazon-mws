@@ -1,17 +1,37 @@
 # Amazon Marketplace Webservices
-[![Latest Stable Version](https://poser.pugx.org/mcs/amazon-mws/v/stable)](https://packagist.org/packages/mcs/amazon-mws) [![Latest Unstable Version](https://poser.pugx.org/mcs/amazon-mws/v/unstable)](https://packagist.org/packages/mcs/amazon-mws) [![License](https://poser.pugx.org/mcs/amazon-mws/license)](https://packagist.org/packages/mcs/amazon-mws) [![Total Downloads](https://poser.pugx.org/mcs/amazon-mws/downloads)](https://packagist.org/packages/mcs/amazon-mws)
 
-this is project fork by https://github.com/meertensm/amazon-mws
+[![Latest Stable Version](https://poser.pugx.org/mcs/amazon-mws/v/stable)](https://packagist.org/packages/mcs/amazon-mws) 
+[![Latest Unstable Version](https://poser.pugx.org/mcs/amazon-mws/v/unstable)](https://packagist.org/packages/mcs/amazon-mws) 
+[![License](https://poser.pugx.org/mcs/amazon-mws/license)](https://packagist.org/packages/mcs/amazon-mws) 
+[![Total Downloads](https://poser.pugx.org/mcs/amazon-mws/downloads)](https://packagist.org/packages/mcs/amazon-mws)
 
-if you have any questions welcome to contact us，to contact me ：https://www.cnblogs.com/liaosp/p/11075260.html
 
 Interaction with the Amazon Api for vendors called MWS
 
+### Change your composer.json file 
+
+```
+"require": {
+    // ...
+    "mcs/amazon-mws": "*",
+    // ...
+},
+"repositories": [
+    {
+        "name": "mcs/amazon-mws",
+        "type": "git",
+        "url": "git@github.com:forecho/amazon-mws.git"
+    }
+]
+```
+
 ### Installation:
 ```bash
-$ composer require liaosp/amazon-mws
+$ composer require mcs/amazon-mws
 ```
+
 ### Initiate the client
+
 ```php
 require_once 'vendor/autoload.php';
 
@@ -30,7 +50,9 @@ if ($client->validateCredentials()) {
     // Credentials are not valid
 }
 ```
+
 ### Get orders
+
 ```php
 $fromDate = new DateTime('2016-01-01');
 $orders = $client->ListOrders($fromDate);
@@ -40,7 +62,9 @@ foreach ($orders as $order) {
     print_r($items);
 }
 ```
+
 ### Get product attributes
+
 ```php
 $searchField = 'ASIN'; // Can be GCID, SellerSKU, UPC, EAN, ISBN, or JAN
 
@@ -50,7 +74,9 @@ $result = $client->GetMatchingProductForId([
 
 print_r($result);
 ```
+
 ### Create or update a product
+
 ```php
 $product = new MCS\MWSProduct();
 $product->sku = 'TESTNOTFORSALE';
@@ -68,7 +94,114 @@ if ($product->validate()) {
 }  
 ```
 
+### Create or update a marketplace product
+
+```php
+public function uploadAmazon(string $productType, Product $product, int $productNode, $otherAttributes = []) 
+{
+    $client = new MCS\MWSClient([
+        'Marketplace_Id' => '',
+        'Seller_Id' => '',
+        'Access_Key_ID' => '',
+        'Secret_Access_Key' => '',
+        'MWSAuthToken' => '' // Optional. Only use this key if you are a third party user/developer
+    ]);
+    $amazonProducts = [];
+    $postItems = [];
+    $amazonProduct = new AmazonMarketPlaceProduct();
+    if ($product->productSku) {
+        $amazonProduct->setSku($product->parent_sku)
+            ->setFeedProductType($productType)
+            ->setBrand($product->brand)
+            ->setTitle($product->title)
+            ->setManufacturer($product->manufacturer)
+            ->setRecommendedBrowseNodes($productNode)
+            ->setParentChild('Parent')
+            ->setOtherAttributes(\app\core\helpers\ArrayHelper::clearValue($otherAttributes))
+            ->setVariationTheme($product->variation_theme);
+        array_push($amazonProducts, $amazonProduct);
+        array_push($postItems, $amazonProduct->toArray(false));
+
+        foreach ($product->productSku as $productSku) {
+            $retailPrice = $productSku->retail_price ?: 0;
+            $salePrice = $productSku->sale_price ?: 0;
+            $saleDate = $salePrice ? explode('~', $productSku->sale_date) : [];
+
+            $_amazonProduct = clone $amazonProduct;
+            $_amazonProduct->setSku($productSku->product_sku)
+                ->setFeedProductType($productType)
+                ->setBrand($product->brand)
+                ->setTitle($product->title)
+                ->setManufacturer($product->manufacturer)
+                ->setPrice($retailPrice > 0 ? CurrencyConverter::CNYConverter($currency, $retailPrice) : '')
+                ->setSalePrice($salePrice > 0 ? CurrencyConverter::CNYConverter($currency, $salePrice) : '')
+                ->setProductId($amazonProductId)
+                ->setSizeName($productSku->size ?: '')
+                ->setColorName($productSku->color ?: '')
+                ->setProductIdType('EAN')
+                ->setCurrency($currency)
+                ->setConditionType('New')
+                ->setWeight($product->weight)
+                ->setQuantity($product->quantity)
+                ->setParentChild('Child')
+                ->setParentSku($parentSku)
+                ->setSaleFromDate(count($saleDate) == 2 ? $saleDate[0] : '')
+                ->setSaleEndDate(count($saleDate) == 2 ? $saleDate[1] : '')
+                ->setVariationTheme($product->variation_theme)
+                ->setKeywords($product->search_keyword)
+                ->setRecommendedBrowseNodes($productNode)
+                ->setBulletPoint($features)
+                ->setDescription($product->description)
+                ->setOtherAttributes($otherAttributes)
+                ->setImage($productSku->images);
+            array_push($amazonProducts, $_amazonProduct);
+            array_push($postItems, $_amazonProduct->toArray(false));
+        }
+    } else {
+        $retailPrice = $product->price ?: 0;
+        $salePrice = $product->sale_price ?: 0;
+        $saleDate = $salePrice ? explode('~', $product->sale_date) : [];
+
+        $amazonProduct->setSku($parentSku)
+            ->setFeedProductType($productType)
+            ->setBrand($product->brand)
+            ->setTitle($product->{$titleAttribute})
+            ->setManufacturer($product->manufacturer)
+            ->setPrice($retailPrice > 0 ? CurrencyConverter::CNYConverter($currency, $retailPrice) : '')
+            ->setSalePrice($salePrice > 0 ? CurrencyConverter::CNYConverter($currency, $salePrice) : '')
+            ->setProductId($amazonProductId)
+            ->setProductIdType('EAN')
+            ->setCurrency($currency)
+            ->setConditionType('New')
+            ->setWeight($product->weight)
+            ->setQuantity($product->quantity)
+            ->setSaleFromDate(count($saleDate) == 2 ? $saleDate[0] : '')
+            ->setSaleEndDate(count($saleDate) == 2 ? $saleDate[1] : '')
+            ->setKeywords($product->search_keyword)
+            ->setRecommendedBrowseNodes($productNode)
+            ->setBulletPoint($features)
+            ->setDescription($product->description)
+            ->setOtherAttributes($otherAttributes)
+            ->setImage($product->images);
+        array_push($amazonProducts, $amazonProduct);
+        array_push($postItems, $amazonProduct->toArray(false));
+    }
+
+    // You can also submit an array of MWSProduct objects
+    $feed = $client->postProduct(
+        $amazonProducts,
+        'fptcustomcustom',
+        '2019.0501',
+        'SE9NRV9MSUdIVElOR19BTkRfTEFNUFM='
+    );
+    Yii::info($postItems, $product->id . '上传产品数据');
+    return $feed;
+}
+```
+
+
 ### Update product stock
+
 ```php
 $result = $client->updateStock([
     'sku1' => 20,
@@ -81,6 +214,7 @@ print_r($info);
 ```
 
 ### Update product stock with fulfillment latency specified
+
 ```php
 $result = $client->updateStockWithFulfillmentLatency([
     ['sku' => 'sku1', 'quantity' => 20, 'latency' => 1],
@@ -93,6 +227,7 @@ print_r($info);
 ```
 
 ### Update product pricing
+
 ```php
 $result = $client->updatePrice([
     'sku1' => '20.99',
@@ -103,7 +238,9 @@ print_r($result);
 $info = $client->GetFeedSubmissionResult($result['FeedSubmissionId']);
 print_r($info);
 ```
+
 ### Reports
+
 For all report types, visit:  [http://docs.developer.amazonservices.com](http://docs.developer.amazonservices.com/en_US/reports/Reports_ReportType.html#ReportTypeCategories__ListingsReports)
 
 ```php
@@ -113,6 +250,7 @@ $report_content = $client->GetReport($reportId);
 print_r($report_content);
 ```
 ### Available methods
+
 View source for detailed argument description.
 All methods starting with an uppercase character are also documented in the [Amazon MWS documentation](http://docs.developer.amazonservices.com/en_US/dev_guide/index.html)
 
