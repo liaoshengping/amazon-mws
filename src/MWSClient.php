@@ -1399,7 +1399,8 @@ class MWSClient
                 'headers' => $headers,
                 'body' => $body,
                 'curl' => [
-                    CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2
+//                    CURLOPT_SSLVERSION => CURL_SSLVERSION_TLSv1_2
+                    CURLOPT_SSLVERSION => 1
                 ]
             ];
             ksort($query);
